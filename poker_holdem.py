@@ -1,6 +1,7 @@
-from random import choice
+from random import choice, randint
 from readchar import readchar
 from time import sleep
+from os import system
 
 
 corazones = "♥"
@@ -27,10 +28,12 @@ percentages = [
     [59, 60, 61, 62, 62, 63, 63, 64, 66, 66, 67, 68, 85]
 ]
 
+initial_cash = 20
 
+cash_bot = initial_cash
+cash_player = initial_cash
+pot = 0
 
-cash_bot = 20
-cash_player = 20
 def create_deck():
     deck = []
     for suit in suits:
@@ -60,7 +63,9 @@ def deal_cards(deck):
 
     return player_cards, bot_cards, table_cards
 
-def show_cards(turn, player_cards, table_cards):
+def show_cards(turn, player_cards, table_cards, bot_cards):
+    global cash_player, cash_bot, pot
+    print("Tu dinero: {}\nBot dinero: {}\nDinero en la mesa: {}".format(cash_player, cash_bot, pot))
     print("TURNO {}:".format(turn))
 
     print("TUS CARTAS\n" + "-" * 30)
@@ -72,30 +77,146 @@ def show_cards(turn, player_cards, table_cards):
     print("[--]\n" * (5 - 2 - turn), end="")
     print("-" * 30)
 
-    print("[--]\n[--]")
+    print("[{}{}]\n[{}{}]".format(bot_cards[0][0], bot_cards[0][1], bot_cards[1][0], bot_cards[1][1]))
+    #print("[--]\n[--]")
     print("CARTAS DEL BOT")
     print("-" * 30)
 
-def ask_player():
-    respond = ""
-    while respond.lower() not in ["s", "n"]:
-        print("Quiere seguir? (s/n): ")
-        sleep(0.1)
-        respond = readchar()
-    if respond.lower() == "n":
-        print("Has perdido")
+def bet():
+    global cash_player, cash_bot, pot
+    if cash_player >= 0:
+        print("-" * 30)
+        print("\n")
+
+        respond = ""
+        while respond.lower() not in ["a", "n", "l"]:
+             print("Quieres apostar: A\n"
+                  "No quieres apostar: N\n"
+                   "All in: L\n")
+             sleep(0.1)
+             respond = input()
+        bet = 0
+
+        if respond.lower() == "a":
+            while bet > cash_player or bet < 1:
+                print("Cuanto quieres apostar?")
+                try:
+                    bet = int(input())
+                    if bet > cash_player and bet < 1:
+                        print("Valor fuera de tus posibilidades")
+                except ValueError:
+                    print("Valor no correcto, reintentelo")
+            pot += bet
+            cash_player -= bet
+        elif respond.lower() == "l":
+            bet = cash_player
+            pot += cash_player
+            cash_player = 0
+
+        elif respond.lower() == "n":
+            print("Has perdido {}$".format(pot))
+            exit()
+
+        return bet
+
+def call_the_bet(bet_more):
+    global cash_player, pot
+    input = ""
+    while input.lower() not in ["s", "n"]:
+        print("Tienes {}$. Quieres seguir jugando? S/N".format(cash_player))
+        input = input()
+    if input.lower() == "s":
+        cash_player -= bet_more
+        pot += bet_more
+
+def bot_decision(bot_cards, turn, cash_bet):
+    global cash_bot, pot
+    probability = randint(1, 100)
+
+    firs_index = values.index(bot_cards[0][1])
+    second_index = values.index(bot_cards[1][1])
+
+    percent = percentages[firs_index][second_index]
+    #Se le suma a la probabilidad dependiendo el turno
+    if turn == 3:
+        percent = percent + percent * 0.1
+    elif turn == 2:
+        percent = percent + percent * 0.2
+    elif turn == 1:
+        percent = percent + percent * 0.3
+
+    #Se le resta dinero a la apuesta dependiendo des dinero apostado, cuanto mas tenga que apostar, mas se restara
+
+    percentage_subtraction = cash_bet * 0.2 / cash_bot
+    percent = percent - percent * percentage_subtraction
+
+
+    if probability <= int(percent):
+        print("El bot decide seguir jugando")
+        cash_bet_bot = cash_bet
+        pot += cash_bet_bot
+        cash_bot -= cash_bet_bot
+        if int(percent) < 15:
+            add = randint(1, cash_bot)
+            cash_bot -= add
+            pot += add
+            print("El bot ha subido la apuesta a {}$".format(cash_bet_bot + add))
+            return add
+    else:
+        print("El bot no quiere seguir jugando\nHas ganado {}$".format(pot))
         exit()
-    return respond
+
+def check_escalera_real(cards_met):
+    escalera_real = ["A", "K", "Q", "J", "10"]
+    cards_found = []
+    for card in cards_met:
+        if card[1] in escalera_real:
+            cards_found.append(card)
+            escalera_real.remove(card[1])
+    if escalera_real == []:
+        suit = cards_met[0][0]
+        for cards in cards_found:
+            if cards[0] != suit:
+                return False
+    else:
+        return False
+    return True
+
+def check_escalera_color(cards_met):
+    ordered_list = []
+    cards_meet_copy = cards_met.copy()
+    for i in range(7):
+        lower_card = cards_meet_copy[0]
+        for card in cards_meet_copy:
+            index = values.index(card[1])
+            if index < values.index(lower_card[1]):
+                lower_card = card
+        cards_meet_copy.remove(lower_card)
+        ordered_list.append(lower_card)
+    return None
+
+def check_winner(cards_to_check, cards_player):
+    cards_met = cards_to_check.copy()
+    cards_met.extend(cards_player)
+
+    #Comprovar escalera real
+    escalera_real = check_escalera_real(cards_met)
+    #Comprovar Escalera Color
+    check_escalera_color(cards_met)
 
 def play(player_cards, bot_cards, table_cards):
     for turn in range(1, 4):
-        show_cards(turn, player_cards, table_cards)
-        respond = ask_player()
-
-
+        system('cls')
+        texas_holdem()
+        show_cards(turn, player_cards, table_cards, bot_cards)
+        cash_bet = bet()
+        bet_more = bot_decision(bot_cards, turn, cash_bet)
+        if bet_more != None:
+            call_the_bet(bet_more)
+        check_winner(table_cards, player_cards)
 
 def main():
-    texas_holdem()
+    system('cls')
     deck = create_deck()
     player_cards, bot_cards, table_cards = deal_cards(deck)
     play(player_cards, bot_cards, table_cards)
