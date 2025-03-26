@@ -53,13 +53,15 @@ def deal_cards(deck):
     bot_cards = []
     table_cards = []
     for i in range(2):
-        player_cards.append(choice(deck))
-        deck.remove(player_cards[i])
+        #player_cards.append(choice(deck))
+        player_cards = [[corazones, "10"], [corazones, "10"]]
+        #deck.remove(player_cards[i])
         bot_cards.append(choice(deck))
         deck.remove(bot_cards[i])
     for i in range(5):
-        table_cards.append(choice(deck))
-        deck.remove(table_cards[i])
+        #table_cards.append(choice(deck))
+        table_cards = [[corazones, "J"], [picas, "J"], [corazones, "A"], [corazones, "A"], [corazones, "A"]]
+        #deck.remove(table_cards[i])
 
     return player_cards, bot_cards, table_cards
 
@@ -166,6 +168,13 @@ def bot_decision(bot_cards, turn, cash_bet):
         print("El bot no quiere seguir jugando\nHas ganado {}$".format(pot))
         exit()
 
+def same_suit_template(cards_found):
+    suit = cards_found[0][0]
+    for cards in cards_found:
+        if cards[0] != suit:
+            return False
+    return True
+
 def check_escalera_real(cards_met):
     escalera_real = ["A", "K", "Q", "J", "10"]
     cards_found = []
@@ -174,15 +183,11 @@ def check_escalera_real(cards_met):
             cards_found.append(card)
             escalera_real.remove(card[1])
     if escalera_real == []:
-        suit = cards_met[0][0]
-        for cards in cards_found:
-            if cards[0] != suit:
-                return False
+        return same_suit_template(cards_found)
     else:
         return False
-    return True
 
-def check_escalera_color(cards_met):
+def to_sort(cards_met):
     ordered_list = []
     cards_meet_copy = cards_met.copy()
     for i in range(7):
@@ -193,7 +198,114 @@ def check_escalera_color(cards_met):
                 lower_card = card
         cards_meet_copy.remove(lower_card)
         ordered_list.append(lower_card)
-    return None
+    return ordered_list
+
+def ladder_template(cards_met):
+    global values
+
+    cards_of_ladder = []
+
+    ordered_list = to_sort(cards_met)
+    for card in range(len(ordered_list[:3])):
+        index = 1
+        cards_of_ladder = [ordered_list[card]]
+        for next_card in range(card + 1, card + 5):
+            if values.index(ordered_list[card][1]) == values.index(ordered_list[next_card][1]) - index:
+                cards_of_ladder.append(ordered_list[next_card])
+                index += 1
+            else:
+                break
+        if len(cards_of_ladder) == 5:
+            return cards_of_ladder
+    return False
+
+def check_escalera_color(cards_met):
+    ladder_cards = ladder_template(cards_met)
+    if ladder_cards != False:
+        return same_suit_template(ladder_cards)
+    return False
+
+def found_same_cards(cards_met, count_of_same_cards):
+    cards_found = []
+    index_cards_found = 0
+    cards_met_copy = cards_met.copy()
+
+    defonitive_list = []
+    cards_met_copy = to_sort(cards_met_copy)
+    while cards_met_copy != []:
+        value_to_found = cards_met_copy[0][1]
+        cards_found.append([])
+        for card in cards_met_copy:
+            if card[1] == value_to_found:
+                cards_found[index_cards_found].append(card)
+            else:
+                index_cards_found += 1
+                break
+        cards_met_copy = [i for i in cards_met_copy if i[1] != value_to_found]
+
+    for list_of_cards in cards_found:
+        if len(list_of_cards) >= count_of_same_cards:
+            defonitive_list.append(list_of_cards)
+
+    return defonitive_list
+
+def check_poker(cards_met):
+    poker_cards = found_same_cards(cards_met, 4)
+    if poker_cards != []:
+        return True
+    return False
+
+def check_full_house(cards_met):
+    same_cards_3 = found_same_cards(cards_met, 3)
+    same_cards_2 = found_same_cards(cards_met, 2)
+
+    if same_cards_3 != [] and same_cards_2 != []:
+        return True
+    return False
+
+def check_ladder(cards_met):
+    ladder_cards = ladder_template(cards_met)
+    if ladder_cards != False:
+        return True
+    return False
+
+def check_trio(cards_met):
+    trio_cards = found_same_cards(cards_met, 3)
+    if trio_cards != []:
+        return True
+    return False
+
+def check_double_pair(cards_met):
+    same_cards_2 = found_same_cards(cards_met, 2)
+    if len(same_cards_2) >= 2:
+        return True
+    return False
+
+def check_pair(cards_met):
+    pair_cards = found_same_cards(cards_met, 2)
+    if pair_cards != []:
+        return True
+    return False
+
+def check_height_card(cards_met):
+    return to_sort(cards_met)
+
+def check_color(cards_met):
+    global corazones, picas, treboles, diamantes
+    cards_found = [[], [], [], []]
+    for card in cards_met:
+        if card[0] == corazones:
+            cards_found[0].append(card)
+        elif card[0] == picas:
+            cards_found[1].append(card)
+        elif card[0] == treboles:
+            cards_found[2].append(card)
+        elif card[0] == diamantes:
+            cards_found[3].append(card)
+    for list_of_cards in cards_found:
+        if len(list_of_cards) >= 5:
+            return True
+    return False
 
 def check_winner(cards_to_check, cards_player):
     cards_met = cards_to_check.copy()
@@ -202,7 +314,26 @@ def check_winner(cards_to_check, cards_player):
     #Comprovar escalera real
     escalera_real = check_escalera_real(cards_met)
     #Comprovar Escalera Color
-    check_escalera_color(cards_met)
+    escalera_color = check_escalera_color(cards_met)
+    #Comprovar poker
+    poker = check_poker(cards_met)
+    #Comprovar full house
+    full_house = check_full_house(cards_met)
+    #Comprovar color
+    colour = check_color(cards_met)
+    #Comprovar escalera
+    ladder = check_ladder(cards_met)
+    #Comprovar trio
+    trio = check_trio(cards_met)
+    #Comprovar doble pareja
+    double_pair = check_double_pair(cards_met)
+    #Comprovar pareja
+    pair = check_pair(cards_met)
+    #Comprovar carta alta
+    height_card = check_height_card(cards_met)
+
+    return [escalera_real, escalera_color, poker, full_house, colour, ladder, trio,
+          double_pair, pair, height_card, height_card]
 
 def play(player_cards, bot_cards, table_cards):
     for turn in range(1, 4):
