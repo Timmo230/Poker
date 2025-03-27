@@ -124,7 +124,7 @@ def bet():
 def call_the_bet(bet_more):
     global cash_player, pot
     input = ""
-    while a.lower() not in ["s", "n"]:
+    while input.lower() not in ["s", "n"]:
         print("Tienes {}$. Quieres seguir jugando? S/N".format(cash_player))
         input = readchar()
     if input.lower() == "s":
