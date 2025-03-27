@@ -1,7 +1,9 @@
+from itertools import combinations
 from random import choice, randint
 from readchar import readchar
 from time import sleep
 from os import system
+from pprint import pprint
 
 
 corazones = "♥"
@@ -53,15 +55,13 @@ def deal_cards(deck):
     bot_cards = []
     table_cards = []
     for i in range(2):
-        #player_cards.append(choice(deck))
-        player_cards = [[corazones, "10"], [corazones, "10"]]
-        #deck.remove(player_cards[i])
+        player_cards.append(choice(deck))
+        deck.remove(player_cards[i])
         bot_cards.append(choice(deck))
         deck.remove(bot_cards[i])
     for i in range(5):
-        #table_cards.append(choice(deck))
-        table_cards = [[corazones, "J"], [picas, "J"], [corazones, "A"], [corazones, "A"], [corazones, "A"]]
-        #deck.remove(table_cards[i])
+        table_cards.append(choice(deck))
+        deck.remove(table_cards[i])
 
     return player_cards, bot_cards, table_cards
 
@@ -96,7 +96,7 @@ def bet():
                   "No quieres apostar: N\n"
                    "All in: L\n")
              sleep(0.1)
-             respond = input()
+             respond = readchar()
         bet = 0
 
         if respond.lower() == "a":
@@ -124,9 +124,9 @@ def bet():
 def call_the_bet(bet_more):
     global cash_player, pot
     input = ""
-    while input.lower() not in ["s", "n"]:
+    while a.lower() not in ["s", "n"]:
         print("Tienes {}$. Quieres seguir jugando? S/N".format(cash_player))
-        input = input()
+        input = readchar()
     if input.lower() == "s":
         cash_player -= bet_more
         pot += bet_more
@@ -288,7 +288,7 @@ def check_pair(cards_met):
     return False
 
 def check_height_card(cards_met):
-    return to_sort(cards_met)
+    return to_sort(cards_met)[::-1]
 
 def check_color(cards_met):
     global corazones, picas, treboles, diamantes
@@ -307,7 +307,7 @@ def check_color(cards_met):
             return True
     return False
 
-def check_winner(cards_to_check, cards_player):
+def check_combinations(cards_to_check, cards_player):
     cards_met = cards_to_check.copy()
     cards_met.extend(cards_player)
 
@@ -332,10 +332,95 @@ def check_winner(cards_to_check, cards_player):
     #Comprovar carta alta
     height_card = check_height_card(cards_met)
 
-    return [escalera_real, escalera_color, poker, full_house, colour, ladder, trio,
-          double_pair, pair, height_card, height_card]
+    return {
+        "escalera_real": escalera_real,
+        "escalera_color": escalera_color,
+        "poker": poker,
+        "full_house": full_house,
+        "color": colour,
+        "ladder": ladder,
+        "trio": trio,
+        "double_pair": double_pair,
+        "pair": pair,
+        "height_card": height_card
+     }
+
+def points(combination):
+    point_player = []
+    if combination["escalera_real"] == True:
+        point_player.append(1)
+    else:
+        point_player.append(0)
+    if combination["escalera_color"] == True:
+        point_player.append(2)
+    else:
+        point_player.append(0)
+    if combination["poker"] == True:
+        point_player.append(3)
+    else:
+        point_player.append(0)
+    if combination["full_house"] == True:
+        point_player.append(4)
+    else:
+        point_player.append(0)
+    if combination["color"] == True:
+        point_player.append(5)
+    else:
+        point_player.append(0)
+    if combination["ladder"] == True:
+        point_player.append(6)
+    else:
+        point_player.append(0)
+    if combination["trio"] == True:
+        point_player.append(7)
+    else:
+        point_player.append(0)
+    if combination["double_pair"] == True:
+        point_player.append(8)
+    else:
+        point_player.append(0)
+    if combination["pair"] == True:
+        point_player.append(9)
+    else:
+        point_player.append(0)
+
+    point_player.append(combination["height_card"])
+
+    return point_player
+
+def check_winner(player_combination, bot_combination):
+    player_points = points(player_combination)
+    bot_points = points(bot_combination)
+
+    index = 0
+    while index < 11:
+        if index < len(player_points) - 1:
+            if player_points[index] > bot_points[index]:
+                print("\n\nHas ganado {}$".format(pot))
+                exit()
+            elif bot_points[index] > player_points[index]:
+                print("\n\nHas perdido {}$".format(pot))
+                exit()
+        else:
+            index_height_card = 0
+            while index_height_card < 7:
+                if values.index(player_points[-1][index_height_card]) > values.index(
+                        bot_points[-1][index_height_card]):
+                    print("\n\nHas ganado {}$".format(pot))
+                    exit()
+                elif values.index(player_points[-1][index_height_card]) > values.index(
+                        bot_points[-1][index_height_card]):
+                    print("\n\nHas perdido {}$".format(pot))
+                    exit()
+                else:
+                    index_height_card += 1
+        index += 1
+
+    print("\n\nHas empatado, te llevas lo que has apostado")
 
 def play(player_cards, bot_cards, table_cards):
+    player_combination = None
+    bot_combination = None
     for turn in range(1, 4):
         system('cls')
         texas_holdem()
@@ -344,7 +429,10 @@ def play(player_cards, bot_cards, table_cards):
         bet_more = bot_decision(bot_cards, turn, cash_bet)
         if bet_more != None:
             call_the_bet(bet_more)
-        check_winner(table_cards, player_cards)
+        if turn == 3:
+            player_combination = check_combinations(table_cards, player_cards)
+            bot_combination = check_combinations(table_cards, bot_cards)
+    check_winner(player_combination, bot_combination)
 
 def main():
     system('cls')
